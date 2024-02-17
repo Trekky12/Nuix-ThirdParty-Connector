@@ -384,6 +384,9 @@ class T3KAnalysisFrame < JFrame
         log("Exporting files to #{timestamped_folder}")
         exported_items = {}
         batch.each do |item|
+
+          @result_queue.offer({ 'type': 'success', 'cat': 'Select', 'item': { "guid": item.getGuid(), "tags": ["#{CUSTOM_METADATA_FIELD_NAME}|Overview|Selected"] }})
+
           log("Exporting file #{item.getGuid()}.#{item.getCorrectedExtension()}")
           exported_file_path = "#{timestamped_folder}/#{item.getGuid()}.#{item.getCorrectedExtension()}"
           begin
@@ -644,6 +647,9 @@ class T3KAnalysisFrame < JFrame
     all_detections_max_score = {}
     detections.each_pair do |detection_idx, detection|
       if detection.size > 0
+        # log "Something detected"
+        result[:item][:tags] << "#{CUSTOM_METADATA_FIELD_NAME}|Overview|Something detected"
+        
         detection_count += 1
         
         #detection.each_pair do |key, value|
@@ -776,7 +782,7 @@ class T3KAnalysisFrame < JFrame
         end
       else
         #log "Nothing detected"
-        result[:item][:tags] << "#{CUSTOM_METADATA_FIELD_NAME}|Nothing detected"
+        result[:item][:tags] << "#{CUSTOM_METADATA_FIELD_NAME}|Overview|Nothing detected"
       end
     end
 
