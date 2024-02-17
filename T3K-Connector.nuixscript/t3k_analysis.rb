@@ -707,6 +707,11 @@ class T3KAnalysisFrame < JFrame
           info = "Pattern #{detection["info"]}"
           type = "Pattern"
           description = detection["name"]
+        when "ALPR"
+          #log "License Plate match detected"
+          info = "License Plate"
+          type = "License Plate"
+          description = "#{detection["description"]}: #{detection["info"]}"
         else
           #log "Unknown type detected"
           info = "Unknown"
