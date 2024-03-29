@@ -1,16 +1,16 @@
-# This file is part of Nuix-T3K-Connector (https://github.com/trekky12/nuix-t3k-connector).
+# This file is part of Nuix-ThirdParty-Connector (https://github.com/trekky12/nuix-thirdparty-connector).
 # Copyright (c) 2024 Trekky12
-# 
-# This program is free software: you can redistribute it and/or modify  
-# it under the terms of the GNU General Public License as published by  
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, version 3.
-# 
-# This program is distributed in the hope that it will be useful, but 
-# WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 # General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License 
+#
+# You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 class MetadataProfileReaderWriter
@@ -24,7 +24,7 @@ class MetadataProfileReaderWriter
              "Metadata Profiles" + File::SEPARATOR + profile_name + ".profile"
   end
 
-  def writeProfile(profile_name, data)
+  def writeProfile(profile_name, custom_metadata_field_name, data)
     metadataProfilePath = getMetadataProfilePath(profile_name)
 
     metadataProfileContent = ""
@@ -39,16 +39,16 @@ class MetadataProfileReaderWriter
       metadataProfileContent << "    <metadata type=\"SPECIAL\" name=\"Name\" />\n"
       metadataProfileContent << "    <metadata type=\"SPECIAL\" name=\"Path Name\" />\n"
       metadataProfileContent << "    <metadata type=\"DERIVED\" name=\"#Treffer\">\n"
-      metadataProfileContent << "      <metadata type=\"CUSTOM\" name=\"#{CUSTOM_METADATA_FIELD_NAME}|Count\" />\n"
+      metadataProfileContent << "      <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|Count\" />\n"
       metadataProfileContent << "    </metadata>\n"
       metadataProfileContent << "    <metadata type=\"DERIVED\" name=\"Treffer\">\n"
-      metadataProfileContent << "      <metadata type=\"CUSTOM\" name=\"#{CUSTOM_METADATA_FIELD_NAME}|Detections\" />\n"
+      metadataProfileContent << "      <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|Detections\" />\n"
       metadataProfileContent << "    </metadata>\n"
-      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{CUSTOM_METADATA_FIELD_NAME}|Error|Export\" />\n"
-      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{CUSTOM_METADATA_FIELD_NAME}|Error|Upload\" />\n"
-      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{CUSTOM_METADATA_FIELD_NAME}|Error|PollQuery\" />\n"
-      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{CUSTOM_METADATA_FIELD_NAME}|Error|ResultQuery\" />\n"
-      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{CUSTOM_METADATA_FIELD_NAME}|Error|Result\" />\n"
+      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|Error|Export\" />\n"
+      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|Error|Upload\" />\n"
+      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|Error|PollQuery\" />\n"
+      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|Error|ResultQuery\" />\n"
+      metadataProfileContent << "    <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|Error|Result\" />\n"
 
       metadataProfileContent << "  </metadata-list>\n"
       metadataProfileContent << "</metadata-profile>"
@@ -67,7 +67,7 @@ class MetadataProfileReaderWriter
       classificationsMetadata << "    </metadata>\n"
     end
 
-    insert_position = metadataProfileContent.index("    <metadata type=\"CUSTOM\" name=\"#{CUSTOM_METADATA_FIELD_NAME}|RAW|Metadata\" />")
+    insert_position = metadataProfileContent.index("    <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|RAW|Metadata\" />")
     if insert_position
       metadataProfileContent = metadataProfileContent.insert(insert_position, classificationsMetadata)
     end

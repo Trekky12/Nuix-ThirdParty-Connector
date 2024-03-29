@@ -1,16 +1,18 @@
-# This file is part of Nuix-T3K-Connector (https://github.com/trekky12/nuix-t3k-connector).
+# encoding: UTF-8
+
+# This file is part of Nuix-ThirdParty-Connector (https://github.com/trekky12/nuix-thirdparty-connector).
 # Copyright (c) 2024 Trekky12
-# 
-# This program is free software: you can redistribute it and/or modify  
-# it under the terms of the GNU General Public License as published by  
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, version 3.
-# 
-# This program is distributed in the hope that it will be useful, but 
-# WITHOUT ANY WARRANTY; without even the implied warranty of 
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU 
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 # General Public License for more details.
-# 
-# You should have received a copy of the GNU General Public License 
+#
+# You should have received a copy of the GNU General Public License
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 require "java"
@@ -55,10 +57,14 @@ java_import java.awt.BorderLayout
 
 java_import javax.swing.SwingWorker
 
-require_relative "helper.rb"
+require_relative "../../libs.nuixscript/helper.rb"
+require_relative "../libs.nuixscript/t3k_settings_dialog.rb"
+
+script_directory = File.dirname(__FILE__)
+SETTINGS_FILE = File.join(script_directory, "..", "data.properties")
 
 class NalvisFrame < JFrame
-  def initialize(window, current_case, current_selected_items, utilities, properties)
+  def initialize(window, current_case, current_selected_items, utilities)
     super "T3K NaLViS Search"
     setDefaultCloseOperation JFrame::DO_NOTHING_ON_CLOSE
 
@@ -69,9 +75,13 @@ class NalvisFrame < JFrame
     @resultData = []
     @resultDataSelected = {}
 
+    properties = read_properties SETTINGS_FILE
+
     @api_host = properties["api_host"]
     @api_port = properties["api_port"]
-    
+    @custom_metadata_field_name = properties["metadata_name"]
+    @nalvis_keep_alive_interval = properties["nalvis_keepalive"]
+
     case_location = @current_case.getLocation().getAbsolutePath
     log_file_path = File.join(case_location, "t3k-nalvis_#{Time.now.strftime("%Y%m%d")}.log")
     @logger = Logger.new(log_file_path)
@@ -113,7 +123,7 @@ class NalvisFrame < JFrame
 
     panel.add(@searchField, gbC_searchfield)
 
-    @searchField.addActionListener do | event |
+    @searchField.addActionListener do |event|
       @btn_search.do_click
     end
 
@@ -126,7 +136,7 @@ class NalvisFrame < JFrame
     @btn_search = JButton.new("Search..")
     @btn_search.setEnabled false
     panel.add(@btn_search, gbc_btn_search)
-  
+
     gbC_label1 = java.awt.GridBagConstraints.new
     gbC_label1.gridx = 0
     gbC_label1.gridy = 5
@@ -143,7 +153,7 @@ class NalvisFrame < JFrame
     gbC_label2.insets = java.awt.Insets.new(5, 10, 5, 10)
     @label2 = JLabel.new(" ")
     panel.add(@label2, gbC_label2)
-  
+
     gridbagConstraints5 = java.awt.GridBagConstraints.new
     gridbagConstraints5.gridx = 0
     gridbagConstraints5.gridy = 7
@@ -192,9 +202,9 @@ class NalvisFrame < JFrame
     @resultSlider.setEnabled false
     @resultSlider.setValueIsAdjusting true
 
-    @resultSlider.addChangeListener do | event |
+    @resultSlider.addChangeListener do |event|
       SwingUtilities.invokeLater do
-        @labelSlider.setText "#{(@resultSlider.value.to_f/100).round(2)} - #{(@resultSlider.maximum.to_f)/100.round(2)}%"
+        @labelSlider.setText "#{(@resultSlider.value.to_f / 100).round(2)} - #{(@resultSlider.maximum.to_f) / 100.round(2)}%"
       end
     end
 
@@ -217,7 +227,7 @@ class NalvisFrame < JFrame
     @btn_filter.setEnabled false
     resultSliderPane.add(@btn_filter, gbc_btn_filter)
 
-    @btn_filter.addActionListener do | event |
+    @btn_filter.addActionListener do |event|
       Thread.new do
         begin
           log("Generate image list")
@@ -275,7 +285,6 @@ class NalvisFrame < JFrame
     scrollPaneR.setViewportView(@resultThumbnailPane)
     resultPane.add(scrollPaneR, gbC_scrollPaneR)
 
-
     gbc_btn_show_in_workbench = java.awt.GridBagConstraints.new
     gbc_btn_show_in_workbench.gridx = 0
     gbc_btn_show_in_workbench.gridy = 3
@@ -285,7 +294,7 @@ class NalvisFrame < JFrame
     @btn_show_in_workbench.setEnabled false
     resultPane.add(@btn_show_in_workbench, gbc_btn_show_in_workbench)
 
-    @btn_show_in_workbench.addActionListener do | event |
+    @btn_show_in_workbench.addActionListener do |event|
       Thread.new do
         begin
           @btn_show_in_workbench.setEnabled false
@@ -325,14 +334,14 @@ class NalvisFrame < JFrame
     log_toggle_btn = JToggleButton.new
     logPanel.add(log_toggle_btn, gridBagConstraintsToggle)
 
-    log_toggle_btn.setText("▽  " + "Show Log");
+    log_toggle_btn.setText("Show Log")
     log_toggle_btn.addActionListener do |e|
       if @log_scroll_pane.isVisible()
         @log_scroll_pane.setVisible(false)
-        log_toggle_btn.setText("▽  " + "Show Log")
-      else 
+        log_toggle_btn.setText("Show Log")
+      else
         @log_scroll_pane.setVisible(true)
-        log_toggle_btn.setText("△  " + "Hide Log")
+        log_toggle_btn.setText("Hide Log")
       end
     end
 
@@ -354,10 +363,21 @@ class NalvisFrame < JFrame
 
     @log_scroll_pane = JScrollPane.new
     @log_scroll_pane.setViewportView(@log_text_pane)
-    @log_scroll_pane.setVisible(false);
+    @log_scroll_pane.setVisible(false)
     @log_scroll_pane.setPreferredSize java.awt.Dimension.new(@log_scroll_pane.getPreferredSize.width, 200)
     @log_scroll_pane.setMinimumSize @log_scroll_pane.getPreferredSize
     logPanel.add(@log_scroll_pane, gbC_scrollPane)
+
+    menu_bar = JMenuBar.new
+    settings_menu = JMenu.new("Settings")
+    settings_item = JMenuItem.new("Settings")
+    settings_item.addActionListener do |event|
+      dialog = T3KSettingsDialog.new self, SETTINGS_FILE
+      dialog.setVisible true
+    end
+    settings_menu.add(settings_item)
+    menu_bar.add(settings_menu)
+    setJMenuBar(menu_bar)
 
     setContentPane(panel)
     setMinimumSize(java.awt.Dimension.new(800, 800))
@@ -402,7 +422,6 @@ class NalvisFrame < JFrame
             @progressBar.value = 0
             @label2.text = " "
           end
-
         end
       end
     end
@@ -429,7 +448,7 @@ class NalvisFrame < JFrame
         end
       end
     end
-  
+
     @log_queue = LinkedBlockingDeque.new
     @logging_worker = LoggingWorker.new
     @logging_worker.frame = self
@@ -440,7 +459,7 @@ class NalvisFrame < JFrame
       loop do
         begin
           unless @session_id.nil?
-            session_keep_alive_response = send_rest_request("post", "#{get_keep_alive_url()}", {"uids": ["#{@session_id}"]})
+            session_keep_alive_response = send_rest_request("post", "#{get_keep_alive_url()}", { "uids": ["#{@session_id}"] })
             if session_keep_alive_response.nil? || session_keep_alive_response.code.to_i != 200
               log "Session keep-alive failed, Status Code: #{session_keep_alive_response.code unless session_keep_alive_response.nil?}, Result: #{session_keep_alive_response.body unless session_keep_alive_response.nil?}"
             end
@@ -454,10 +473,9 @@ class NalvisFrame < JFrame
         rescue StandardError => e
           @logger.error("An error occurred with the keep-alive: #{e.message}")
         end
-        sleep(NALVIS_SESSION_KEEP_ALIVE_INTERVAL)
+        sleep(@nalvis_keep_alive_interval)
       end
     end
-
   end
 
   def get_create_session_url()
@@ -494,7 +512,7 @@ class NalvisFrame < JFrame
         prefix = "Rendering"
       end
       if @progressBar.maximum > 0
-        percentage = ((@progressBar.value.to_f/@progressBar.maximum)*100)
+        percentage = ((@progressBar.value.to_f / @progressBar.maximum) * 100)
       else
         percentage = 0.0
       end
@@ -504,11 +522,11 @@ class NalvisFrame < JFrame
 
   def init()
     begin
-      @label1.text = "Phase 1/#{PHASES_NALVIS}: Search possible result items"
+      @label1.text = "Phase 1/3: Search possible result items"
       @progressBar.setIndeterminate(true)
       log("Search NaLViS encodings")
 
-      nalvis_items = @current_case.searchUnsorted("custom-metadata:\"#{CUSTOM_METADATA_FIELD_NAME}|nalvis\":*")
+      nalvis_items = @current_case.searchUnsorted("custom-metadata:\"#{@custom_metadata_field_name}|nalvis\":*")
       log("Found #{nalvis_items.length} items")
 
       if nalvis_items.length == 0
@@ -517,13 +535,13 @@ class NalvisFrame < JFrame
       end
 
       log("Create NaLViS session")
-      
-      @label1.text = "Phase 2/#{PHASES_NALVIS}: Create NaLViS Session"
+
+      @label1.text = "Phase 2/3: Create NaLViS Session"
       @label2.text = " "
       @progressBar.setIndeterminate(true)
 
       session_id = (Time.now.to_f * 1000).to_i
-      payload = {'encodings' => nil}
+      payload = { "encodings" => nil }
       session_response = send_rest_request("post", "#{get_create_session_url()}/#{session_id}", payload)
       if session_response.nil? || session_response.code.to_i != 202
         log "Session creation failed, Status Code: #{session_response.code unless session_response.nil?}"
@@ -547,9 +565,9 @@ class NalvisFrame < JFrame
       @progressBar.maximum = nalvis_items.length
 
       encodings = {}
-      nalvis_items.each do | item |
+      nalvis_items.each do |item|
         guid = item.getGuid()
-        encoding = item.getCustomMetadata["#{CUSTOM_METADATA_FIELD_NAME}|nalvis"]
+        encoding = item.getCustomMetadata["#{@custom_metadata_field_name}|nalvis"]
         if encoding.length > 0
           begin
             parsed_encoding = JSON.parse(encoding)
@@ -559,13 +577,13 @@ class NalvisFrame < JFrame
           end
           encodings[guid] = parsed_encoding
           @item_thumbnails[guid] = item.getThumbnail().getPage(0)
-          
+
           log("Add encoding for item #{guid}")
 
-          payload = {"encodings" => {guid => encoding}}
+          payload = { "encodings" => { guid => encoding } }
           #log("Payload: #{payload}")
           session_add_encoding_response = send_rest_request("put", "#{get_create_session_url()}/#{session_id}", payload)
-          
+
           if session_add_encoding_response.nil? || session_add_encoding_response.code.to_i != 200
             log "Add encoding failed, Status Code: #{session_add_encoding_response.code unless session_add_encoding_response.nil?}"
           end
@@ -577,7 +595,6 @@ class NalvisFrame < JFrame
             response = {}
           end
           log(response)
-
         end
         increase_progress()
         if @cancel_task
@@ -600,13 +617,9 @@ class NalvisFrame < JFrame
           log "Error parsing session status response: #{e.message}"
           response = {}
         end
-      
+
         if response["encodings_ready"]
           processing_finished = true
-        end
-
-        if POLLING_INTERVAL
-          sleep(POLLING_INTERVAL)
         end
       end
 
@@ -615,9 +628,8 @@ class NalvisFrame < JFrame
       else
         @label1.text = " "
       end
-
     rescue => e
-      log "Error: #{e.message}"      
+      log "Error: #{e.message}"
     end
 
     return nalvis_items.length
@@ -625,7 +637,6 @@ class NalvisFrame < JFrame
 
   def search()
     begin
-
       @label1.text = "Searching..."
       @label2.text = " "
       @progressBar.setIndeterminate(true)
@@ -637,10 +648,10 @@ class NalvisFrame < JFrame
 
       log("Submitting text")
 
-      search_submit_response = send_rest_request("post", "#{get_search_url()}/#{@session_id}/text", {"0": @searchField.getText})
+      search_submit_response = send_rest_request("post", "#{get_search_url()}/#{@session_id}/text", { "0": @searchField.getText })
       if search_submit_response.nil? || search_submit_response.code.to_i != 202
         log "Submitting text failed, Status Code: #{search_submit_response.code unless search_submit_response.nil?}"
-        return;
+        return
       end
 
       begin
@@ -651,7 +662,7 @@ class NalvisFrame < JFrame
       end
 
       log(response)
-    
+
       log("Get text search status")
       processing_finished = false
       until processing_finished || @cancel_task
@@ -666,13 +677,9 @@ class NalvisFrame < JFrame
           log "Error parsing search status response: #{e.message}"
           response = {}
         end
-      
-        if response["status"] &&  response["status"] == "success"
-          processing_finished = true
-        end
 
-        if POLLING_INTERVAL
-          sleep(POLLING_INTERVAL)
+        if response["status"] && response["status"] == "success"
+          processing_finished = true
         end
       end
 
@@ -680,12 +687,12 @@ class NalvisFrame < JFrame
       @label1.text = "Searching..."
       @label2.text = "Getting result"
       @progressBar.setIndeterminate(true)
-      
+
       search_response = send_rest_request("get", "#{get_search_url()}/#{@session_id}")
       if search_response.nil? || search_response.code.to_i != 200
         log "Search failed, Status Code: #{search_response.code unless search_response.nil?}"
         # TODO: reset GUI
-        return;
+        return
       end
 
       begin
@@ -702,11 +709,10 @@ class NalvisFrame < JFrame
       @progressBar.setIndeterminate(true)
 
       if response.length > 0
-
         max_similarity = 0
 
         values = response.values
-        formatted_data = values.map do | value |
+        formatted_data = values.map do |value|
           name = value.keys[0]
           similarity = value.values[0].last.to_f
 
@@ -724,14 +730,14 @@ class NalvisFrame < JFrame
         @progressBar.setIndeterminate(true)
 
         # sort by similiarity
-        @resultData = formatted_data.sort_by{ | data | -data[1] }
+        @resultData = formatted_data.sort_by { |data| -data[1] }
 
         # initial value
         max_index = [@resultData.length - 1, 10].min
         threshold = @resultData[max_index][1]
         log "Set slider value"
-        @resultSlider.setMaximum max_similarity*100*100+1
-        @resultSlider.setValue threshold*100*100
+        @resultSlider.setMaximum max_similarity * 100 * 100 + 1
+        @resultSlider.setValue threshold * 100 * 100
 
         @progressBar.setIndeterminate(false)
 
@@ -743,12 +749,10 @@ class NalvisFrame < JFrame
         worker = ImageAdderWorker.new
         worker.frame = self
         worker.execute
-
       end
 
       @label1.text = " "
       @label2.text = " "
-
     rescue => e
       log "Error: #{e.message}"
     end
@@ -773,7 +777,7 @@ class NalvisFrame < JFrame
   def resize_image(buffered_image, max_width, max_height)
     width = buffered_image.get_width
     height = buffered_image.get_height
-  
+
     if width > max_width || height > max_height
       width_ratio = max_width.to_f / width
       height_ratio = max_height.to_f / height
@@ -791,13 +795,13 @@ class NalvisFrame < JFrame
     if new_height <= 0
       new_height = 1
     end
-  
+
     # Create a new BufferedImage with the resized dimensions
     resized_image = BufferedImage.new(new_width, new_height, BufferedImage::TYPE_INT_ARGB)
     g = resized_image.create_graphics
     g.set_rendering_hint(java.awt.RenderingHints::KEY_INTERPOLATION, java.awt.RenderingHints::VALUE_INTERPOLATION_BILINEAR)
     g.draw_image(buffered_image, 0, 0, new_width, new_height, nil)
-  
+
     resized_image
   end
 
@@ -827,7 +831,6 @@ class NalvisFrame < JFrame
   end
 
   class LoggingWorker < SwingWorker
-
     attr_accessor :frame
     attr_accessor :logger
 
@@ -843,17 +846,15 @@ class NalvisFrame < JFrame
 
           # Skip log messages between for performance improvements
           @frame.clear_log
-
         rescue Exception => e
           @logger.error("Exception occurred while printing the log (#{e.class.canonical_name}): #{e.message}")
         end
       end
-      puts 'Logging Worker stopped!'
+      puts "Logging Worker stopped!"
       nil
     end
 
     def process(chunks)
-
       log_text_pane = @frame.instance_variable_get(:@log_text_pane)
 
       position = log_text_pane.document.length
@@ -865,8 +866,8 @@ class NalvisFrame < JFrame
 
       begin
         lines = log_text_pane.document.default_root_element.element_count
-        if lines > MAX_LINES
-          lines_to_remove = lines - MAX_LINES
+        if lines > MAX_LOG_LINES
+          lines_to_remove = lines - MAX_LOG_LINES
           document = log_text_pane.styled_document
           root = document.default_root_element
           while lines_to_remove > 0 && root.element_count > 0
@@ -897,7 +898,7 @@ class ResizeListener
       frame_width = @frame.get_width
       new_column_count = [frame_width / 150, 1].max # Adjust the divisor as needed
       @frame.log("Re-render with #{new_column_count} columns")
-      
+
       # TODO: test start threaded when uncomment this resizelistener
       Thread.new do
         @frame.render_images(new_column_count)
@@ -910,13 +911,10 @@ class ResizeListener
   def componentHidden(e); end
 end
 
-
 class ImageAdderWorker < SwingWorker
-
   attr_accessor :frame
 
   def doInBackground
-
     @frame.log("Render image list")
 
     columns = 5
@@ -944,13 +942,13 @@ class ImageAdderWorker < SwingWorker
     @frame.instance_variable_get(:@resultThumbnailPane).repaint
 
     idx = 0
-    filtered_data.each_pair do | guid, similarity |
-      
+    filtered_data.each_pair do |guid, similarity|
+
       #@frame.log("Get thumbnail for item #{guid}")
-      
+
       #nuix_item = @current_case.search("guid:#{guid}").first
       #img = nuix_item.getThumbnail().getPage(0)
-      
+
       # use thumbnail from global list instead of querying dynamically
       img = @frame.instance_variable_get(:@item_thumbnails)[guid]
       if img
@@ -965,13 +963,13 @@ class ImageAdderWorker < SwingWorker
           gridx = idx % columns
           c.gridx = gridx
           c.weightx = 1.0
-          
+
           #if gridx == columns
           #  c.weightx = 1.0
           #end
 
           c.gridy = idx / columns
-      
+
           if idx == filtered_data.length - 1
             c.weighty = 1.0
           end
@@ -980,7 +978,7 @@ class ImageAdderWorker < SwingWorker
           image_icon = ImageIcon.new(image)
           image_label = JLabel.new(image_icon)
 
-          label = (similarity*100).round(2)
+          label = (similarity * 100).round(2)
           text_label = JLabel.new("#{label}%")
           text_label.set_horizontal_alignment(JLabel::CENTER)
 
@@ -1002,7 +1000,6 @@ class ImageAdderWorker < SwingWorker
         @frame.log("Stopping image list generation!")
         break
       end
-
     end
 
     publish(panels.clone)
@@ -1012,10 +1009,10 @@ class ImageAdderWorker < SwingWorker
 
   def process(chunks)
     @frame.log("Render chunk")
-    
+
     resultThumbnailPane = @frame.instance_variable_get(:@resultThumbnailPane)
-    chunks.each do | panels |
-      panels.each do | data |
+    chunks.each do |panels|
+      panels.each do |data|
         panel = data[0]
         c = data[1]
         resultThumbnailPane.add(panel, c)
@@ -1043,3 +1040,16 @@ class ImageAdderWorker < SwingWorker
     end
   end
 end
+
+begin
+  if !File.exists? SETTINGS_FILE
+    dialog = T3KSettingsDialog.new nil, SETTINGS_FILE
+    dialog.setVisible true
+  end
+  nalvis_frame = NalvisFrame.new window, current_case, current_selected_items, utilities
+  nalvis_frame.setVisible true
+rescue StandardError => e
+  JOptionPane.showMessageDialog(nil, "An error occurred: #{e.message}")
+end
+
+return 0
