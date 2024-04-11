@@ -375,6 +375,9 @@ class ThirdPartyConnector < JFrame
     begin
       nuix_case = @current_case
       exporter = @utilities.getBinaryExporter
+      annotater = @utilities.getBulkAnnotater
+
+      annotater.addTag("#{@custom_metadata_field_name}|Overview|Selected", items)
 
       # Create a timestamped folder
       timestamp = Time.now.strftime("%Y%m%d_%H%M%S")
@@ -407,7 +410,7 @@ class ThirdPartyConnector < JFrame
         log("Exporting files to #{timestamped_folder}")
         exported_items = {}
         batch.each do |item|
-          @result_queue.offer({ 'type': "success", 'cat': "Select", 'item': { "guid": item.getGuid(), "tags": ["#{@custom_metadata_field_name}|Overview|Selected"] } })
+          #@result_queue.offer({ 'type': "success", 'cat': "Select", 'item': { "guid": item.getGuid(), "tags": ["#{@custom_metadata_field_name}|Overview|Selected"] } })
 
           log("Exporting file #{item.getGuid()}.#{item.getCorrectedExtension()}")
           exported_file_path = "#{timestamped_folder}/#{item.getGuid()}.#{item.getCorrectedExtension()}"
