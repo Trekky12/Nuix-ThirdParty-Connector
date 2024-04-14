@@ -17,10 +17,11 @@
 
 require "java"
 
-require "json"
 require "fileutils"
 require "logger"
 require "date"
+
+require "stringio"
 
 java_import javax.swing.JFrame
 java_import javax.swing.JPanel
@@ -290,28 +291,59 @@ class ThirdPartyConnector < JFrame
     @result_queue = LinkedBlockingQueue.new
     num_threads = java.lang.Runtime.getRuntime.available_processors
     @result_executor = Executors.new_fixed_thread_pool(num_threads)
+    
+    @result_mutex = Mutex.new
+    @result_remaining_items = 0
+    @result_finished = false
 
     runnable = java.lang.Runnable.impl do
       loop do
         begin
-          data = @result_queue.take
-          begin
-            if data[:type] == "error"
-              log("Save failed items information (#{data[:cat]}) for #{data[:item][:guid]}")
-              update_custom_metadata_for_failed_item(data[:item], data[:cat])
-            elsif data[:type] == "success"
-              log("Save results for item #{data[:item][:guid]}")
-              nuix_item = @current_case.search("guid:#{data[:item][:guid]}").first
-              data[:item][:tags].each do |tag|
-                nuix_item.addTag(tag)
-              end
-              data[:item][:custom_metadata].each_pair do |key, value|
-                nuix_item.getCustomMetadata[key] = value
-              end
+
+          shutdown = false
+          
+          @result_mutex.synchronize do
+            if @result_finished and @result_queue.size == 0
+              shutdown = true
             end
-          rescue StandardError => e
-            log("Save results error: #{e.message}")
-            log(data)
+          end
+          
+          break if shutdown
+        
+          data = @result_queue.poll
+          if data
+            @result_mutex.synchronize do
+              @result_remaining_items += 1
+            end
+
+            begin
+              if data[:type] == "error"
+                log("Save failed items information (#{data[:cat]}) for #{data[:item][:guid]}")
+                update_custom_metadata_for_failed_item(data[:item], data[:cat])
+              elsif data[:type] == "success"
+                log("Save results for item #{data[:item][:guid]}")
+                nuix_item = @current_case.search("guid:#{data[:item][:guid]}").first
+                data[:item][:tags].each do |tag|
+                  nuix_item.addTag(tag)
+                end
+                #log data
+                if data[:item].key?(:custom_metadata)
+                  data[:item][:custom_metadata].each_pair do |key, value|
+                    #nuix_item.getCustomMetadata[key.to_s] = value
+                    nuix_item.getCustomMetadata.putText(key.to_s, value)
+                  end
+                end
+              end
+            rescue StandardError => e
+              log("Save results error: #{e.message}")
+              log(data)
+              log e.backtrace.join("\n")
+            end
+
+            @result_mutex.synchronize do
+              @result_remaining_items -= 1
+            end
+
           end
         rescue StandardError => e
           log("An error occurred with the results loop: #{e.message}")
@@ -320,6 +352,9 @@ class ThirdPartyConnector < JFrame
     end
 
     @result_executor.submit(runnable)
+    #num_threads.times do 
+    #  @result_executor.submit(runnable)
+    #end
   end
 
   def showSettings
@@ -376,7 +411,7 @@ class ThirdPartyConnector < JFrame
       nuix_case = @current_case
       exporter = @utilities.getBinaryExporter
       annotater = @utilities.getBulkAnnotater
-
+      
       annotater.addTag("#{@custom_metadata_field_name}|Overview|Selected", items)
 
       # Create a timestamped folder
@@ -465,19 +500,21 @@ class ThirdPartyConnector < JFrame
     @cancel_task = false
     log("=============================================================")
 
-    log("Analyze is complete, Remaining items in classification queue: #{@result_queue.size}")
+    log("Analyze is complete, Remaining items in classification queue: #{@result_queue.size+@result_remaining_items}")
     setLabel1 "Save classifications on nuix items"
     setProgressBarMax 0
     setProgressBarValue 0
     @progressBar.setIndeterminate(true)
 
     # wait for classification is done (@result_queue.size == 0)
-    while @result_queue.size > 0 and not @cancel_task
-      setLabel2 "#{@result_queue.size} items remaining"
+    while (@result_queue.size > 0 or @result_remaining_items > 0) and not @cancel_task
+      setLabel2 "#{@result_queue.size+@result_remaining_items} items remaining"
       sleep(1)
     end
     # then stop @result_executor
+    @result_finished = true
     @result_executor.shutdown
+    @result_executor.await_termination(1, java.util.concurrent.TimeUnit::MINUTES)
 
     @progressBar.setIndeterminate(false)
 
