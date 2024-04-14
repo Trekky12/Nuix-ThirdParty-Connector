@@ -351,10 +351,10 @@ class ThirdPartyConnector < JFrame
       end
     end
 
-    @result_executor.submit(runnable)
-    #num_threads.times do 
-    #  @result_executor.submit(runnable)
-    #end
+    #@result_executor.submit(runnable)
+    num_threads.times do 
+      @result_executor.submit(runnable)
+    end
   end
 
   def showSettings
