@@ -67,7 +67,7 @@ class MetadataProfileReaderWriter
       classificationsMetadata << "    </metadata>\n"
     end
 
-    insert_position = metadataProfileContent.index("    <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|RAW|Metadata\" />")
+    insert_position = metadataProfileContent.index("    <metadata type=\"CUSTOM\" name=\"#{custom_metadata_field_name}|Error|Export\" />")
     if insert_position
       metadataProfileContent = metadataProfileContent.insert(insert_position, classificationsMetadata)
     end
