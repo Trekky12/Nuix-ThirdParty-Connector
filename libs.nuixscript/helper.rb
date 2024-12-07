@@ -14,6 +14,8 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 require "net/http"
+require "uri"
+require "json"
 
 def format_duration(seconds)
   minutes = seconds / 60
@@ -21,7 +23,7 @@ def format_duration(seconds)
   return "#{minutes.to_i} min. #{remaining_seconds.round(3)} sec."
 end
 
-def send_rest_request(http_method, url, payload = nil, timeout = 1800)
+def send_rest_request(http_method, url, payload = nil, content_type = 'application/json; utf-8', timeout = 1800)
   uri = URI.parse(url)
   http = Net::HTTP.new(uri.host, uri.port)
 
@@ -31,8 +33,12 @@ def send_rest_request(http_method, url, payload = nil, timeout = 1800)
   response = nil
 
   if payload
-    request.add_field("Content-Type", "application/json; utf-8")
-    request.body = payload.to_json
+    request['Content-Type'] = content_type
+    if content_type.start_with?('multipart/form-data')
+      request.set_form payload, 'multipart/form-data'
+    else
+      request.body = payload.to_json
+    end
   end
 
   begin
@@ -41,6 +47,15 @@ def send_rest_request(http_method, url, payload = nil, timeout = 1800)
     log("Error with HTTP Request #{e.message}")
   ensure
     http.finish if http.started?
+  end
+  
+  # close opened file
+  if payload
+	  payload.each do |key, value|
+		if value.is_a?(File) && !value.closed?
+		  value.close # Close the file after reading
+		end
+	  end
   end
 
   return response
