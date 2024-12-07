@@ -79,6 +79,7 @@ class NalvisFrame < JFrame
 
     @api_host = properties["api_host"]
     @api_port = properties["api_port"]
+    @batch_size = properties["batch_size"].to_i
     @custom_metadata_field_name = properties["metadata_name"]
     @nalvis_keep_alive_interval = properties["nalvis_keepalive"]
 
@@ -473,7 +474,7 @@ class NalvisFrame < JFrame
         rescue StandardError => e
           @logger.error("An error occurred with the keep-alive: #{e.message}")
         end
-        sleep(@nalvis_keep_alive_interval)
+        sleep(@nalvis_keep_alive_interval.to_i)
       end
     end
   end
@@ -563,24 +564,47 @@ class NalvisFrame < JFrame
       # Add Encodings to session
       @progressBar.setIndeterminate(false)
       @progressBar.maximum = nalvis_items.length
+      
+      batch_number = 0
+      total_batches = (nalvis_items.length / @batch_size.to_f).ceil
 
-      encodings = {}
-      nalvis_items.each do |item|
-        guid = item.getGuid()
-        encoding = item.getCustomMetadata["#{@custom_metadata_field_name}|nalvis"]
-        if encoding.length > 0
-          begin
-            parsed_encoding = JSON.parse(encoding)
-          rescue JSON::ParserError => e
-            log "Error parsing nalvis, probably no json: #{e.message}"
-            parsed_encoding = encoding
+      nalvis_items.each_slice(@batch_size) do |batch|
+        start = Time.now
+        if @cancel_task
+          log("Stopping batch!")
+          break
+        end
+
+        log("=============================================================")
+        batch_number += 1
+        log "Processing batch #{batch_number} of #{total_batches}"
+
+        # Collect encodings for items of this batch
+        encodings = {}
+        batch.each do |item|
+          guid = item.getGuid()
+          encoding = item.getCustomMetadata["#{@custom_metadata_field_name}|nalvis"]
+          if encoding.length > 0
+            @item_thumbnails[guid] = item.getThumbnail().getPage(0)
+            
+            #log("Add encoding for item #{guid}")
+            
+            begin
+              parsed_encoding = JSON.parse(encoding)
+            rescue JSON::ParserError => e
+              log "Error parsing nalvis, probably no json: #{e.message}"
+              parsed_encoding = encoding
+            end
+            encodings[guid] = parsed_encoding
           end
-          encodings[guid] = parsed_encoding
-          @item_thumbnails[guid] = item.getThumbnail().getPage(0)
-
-          log("Add encoding for item #{guid}")
-
-          payload = { "encodings" => { guid => encoding } }
+          increase_progress()
+        end
+        
+        # Send encodings to session
+        if encodings.size > 0
+          log("Send encodings to session")
+          
+          payload = { "encodings" => encodings }
           #log("Payload: #{payload}")
           session_add_encoding_response = send_rest_request("put", "#{get_create_session_url()}/#{session_id}", payload)
 
@@ -596,11 +620,7 @@ class NalvisFrame < JFrame
           end
           log(response)
         end
-        increase_progress()
-        if @cancel_task
-          log("Stopping batch!")
-          break
-        end
+        
       end
 
       log("Get session status")
@@ -706,7 +726,7 @@ class NalvisFrame < JFrame
       log("Found #{response.length} matches")
       @label1.text = "Parsing result (#{response.length} matches)"
       @label2.text = " "
-      @progressBar.setIndeterminate(true)
+      @progressBar.setIndeterminate(false)
 
       if response.length > 0
         max_similarity = 0
