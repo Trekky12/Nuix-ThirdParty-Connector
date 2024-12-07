@@ -210,10 +210,6 @@ class T3KAnalysisFrame < ThirdPartyConnector
     all_detections_max_score = {}
     detections.each_pair do |detection_idx, detection|
       if detection.size > 0
-        # log "Something detected"
-        result[:item][:tags] << "#{@custom_metadata_field_name}|Overview|Something detected"
-
-        detection_count += 1
 
         #detection.each_pair do |key, value|
         #  result[:item][:custom_metadata]["#{@custom_metadata_field_name}|RAW|AllResults|#{detection_idx}|#{key}"] = value.to_s
@@ -281,6 +277,12 @@ class T3KAnalysisFrame < ThirdPartyConnector
           info = "License Plate"
           type = "License Plate"
           description = "#{detection["description"]}: #{detection["info"]}"
+        when "OCR text"
+          #log "Skipping OCR extraction"
+          next
+        when "transcription text"
+          #log "Skipping transcription extraction"
+          next
         else
           #log "Unknown type detected"
           info = "Unknown"
@@ -341,6 +343,10 @@ class T3KAnalysisFrame < ThirdPartyConnector
         if !info && !score && !description
           log "Error with the detections!!"
           result[:item][:tags] << "#{@custom_metadata_field_name}|Error|DetectionError"
+        else
+          # log "Something detected"
+          result[:item][:tags] << "#{@custom_metadata_field_name}|Overview|Something detected"
+          detection_count += 1
         end
       else
         #log "Nothing detected"
