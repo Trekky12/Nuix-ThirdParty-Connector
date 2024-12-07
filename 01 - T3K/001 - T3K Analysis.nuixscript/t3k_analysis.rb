@@ -127,7 +127,12 @@ class T3KAnalysisFrame < ThirdPartyConnector
         item_result_extracted = getItemResult(item_srv_path, item_data)
         log("Item #{item_data[:upload_id]} Result: #{item_result_extracted}")
         uploaded_items[item_srv_path][:finished] = item_result_extracted
+        #if not item_result_extracted
+        #  sleep(0.01)
+        #end
       end
+      log "Waiting for next batch check"
+      sleep(1)
     end
 
     return true
@@ -208,6 +213,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
     detection_count = 0
     all_detections = []
     all_detections_max_score = {}
+    all_extractions = []
     detections.each_pair do |detection_idx, detection|
       if detection.size > 0
 
@@ -219,6 +225,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
         type = nil
         score = nil
         description = nil
+        text = nil
         case detection["type"]
         when "age/gender"
           #log "Person detected!"
@@ -257,10 +264,15 @@ class T3KAnalysisFrame < ThirdPartyConnector
           info = "PhotoDNA #{detection["info"]}"
           type = "PhotoDNA"
           description = detection["description"]
-        when "OCR"
+        when "OCR hit"
           #log "OCR match detected"
           info = "OCR #{detection["info"]}"
           type = "OCR"
+          description = detection["description"]
+        when "transcription hit"
+          #log "Transcription match detected"
+          info = "Transcription #{detection["info"]}"
+          type = "Transcription"
           description = detection["description"]
         when "text"
           #log "Text match detected"
@@ -278,11 +290,17 @@ class T3KAnalysisFrame < ThirdPartyConnector
           type = "License Plate"
           description = "#{detection["description"]}: #{detection["info"]}"
         when "OCR text"
-          #log "Skipping OCR extraction"
-          next
+          #log "OCR extraction"
+          info = "#{detection["info"]}"
+          type = "OCR extraction"
+          text = detection["text"]
         when "transcription text"
-          #log "Skipping transcription extraction"
-          next
+          log "transcription extraction"
+          info = "#{detection["info"]}"
+          type = "Transcription extraction"
+          text = detection["segments"].map do |segment|
+            "#{segment["start_string"]}: #{segment["text"]}"
+          end.join("\n")
         else
           #log "Unknown type detected"
           info = "Unknown"
@@ -290,6 +308,17 @@ class T3KAnalysisFrame < ThirdPartyConnector
           description = "Unknown"
         end
 
+        if text
+          result[:item][:tags] << "#{@custom_metadata_field_name}|Overview|Something extracted"
+          result[:item][:tags] << "#{@custom_metadata_field_name}|Results|#{type}|#{info}"
+
+          result[:item][:custom_metadata]["#{@custom_metadata_field_name}|Extractions|#{type}|#{all_extractions.size}|text"] = text
+          result[:item][:custom_metadata]["#{@custom_metadata_field_name}|Extractions|#{type}|#{all_extractions.size}|info"] = info
+          all_extractions.append("#{text}")
+
+          # Skip remaining part
+          next
+        end
         if score
           percentage_ranges = [
             { range: (0..10), tag: "0-10%" },
