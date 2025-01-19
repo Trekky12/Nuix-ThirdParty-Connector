@@ -110,10 +110,6 @@ class T3KAnalysisFrame < ThirdPartyConnector
     log("Polling uploaded items and get result")
     all_items_finished = false
     until all_items_finished || @cancel_task
-      all_items_finished = uploaded_items.all? do |item_srv_path, item_data|
-        uploaded_items[item_srv_path][:finished]
-      end
-
       uploaded_items.each do |item_srv_path, item_data|
         if @cancel_task
           log("Stopping task!")
@@ -131,8 +127,15 @@ class T3KAnalysisFrame < ThirdPartyConnector
         #  sleep(0.01)
         #end
       end
-      log "Waiting for next batch check"
-      sleep(1)
+      
+      all_items_finished = uploaded_items.all? do |item_srv_path, item_data|
+        uploaded_items[item_srv_path][:finished]
+      end
+
+      if not all_items_finished
+        log "Waiting for next batch check"
+        sleep(30) 
+      end
     end
 
     return true
