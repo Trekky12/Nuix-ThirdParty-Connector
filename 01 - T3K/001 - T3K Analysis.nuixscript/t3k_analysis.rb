@@ -50,15 +50,15 @@ class T3KAnalysisFrame < ThirdPartyConnector
   end
 
   def get_upload_url()
-    "http://#{@api_host}:#{@api_port}/upload"
+    "http://#{@properties["api_host"]}:#{@properties["api_port"]}/upload"
   end
 
   def get_poll_url()
-    "http://#{@api_host}:#{@api_port}/poll"
+    "http://#{@properties["api_host"]}:#{@properties["api_port"]}/poll"
   end
 
   def get_result_url()
-    "http://#{@api_host}:#{@api_port}/result"
+    "http://#{@properties["api_host"]}:#{@properties["api_port"]}/result"
   end
 
   def upload_batch(batch, exported_items)
@@ -209,7 +209,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
     result = { 'type': "success", 'cat': "Result", 'item': { "guid": nuix_item_guid, "tags": [], "custom_metadata": {} } }
 
     metadata = result_data["metadata"]
-    result[:item][:custom_metadata]["#{@custom_metadata_field_name}|RAW|Metadata"] = metadata.to_json
+    result[:item][:custom_metadata]["#{@properties["metadata_name"]}|RAW|Metadata"] = metadata.to_json
 
     detections = result_data["detections"]
 
@@ -221,7 +221,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
       if detection.size > 0
 
         #detection.each_pair do |key, value|
-        #  result[:item][:custom_metadata]["#{@custom_metadata_field_name}|RAW|AllResults|#{detection_idx}|#{key}"] = value.to_s
+        #  result[:item][:custom_metadata]["#{@properties["metadata_name"]}|RAW|AllResults|#{detection_idx}|#{key}"] = value.to_s
         #end
 
         info = nil
@@ -312,11 +312,11 @@ class T3KAnalysisFrame < ThirdPartyConnector
         end
 
         if text
-          result[:item][:tags] << "#{@custom_metadata_field_name}|Overview|Something extracted"
-          result[:item][:tags] << "#{@custom_metadata_field_name}|Results|#{type}|#{info}"
+          result[:item][:tags] << "#{@properties["metadata_name"]}|Overview|Something extracted"
+          result[:item][:tags] << "#{@properties["metadata_name"]}|Results|#{type}|#{info}"
 
-          result[:item][:custom_metadata]["#{@custom_metadata_field_name}|Extractions|#{type}|#{all_extractions.size}|text"] = text
-          result[:item][:custom_metadata]["#{@custom_metadata_field_name}|Extractions|#{type}|#{all_extractions.size}|info"] = info
+          result[:item][:custom_metadata]["#{@properties["metadata_name"]}|Extractions|#{type}|#{all_extractions.size}|text"] = text
+          result[:item][:custom_metadata]["#{@properties["metadata_name"]}|Extractions|#{type}|#{all_extractions.size}|info"] = info
           all_extractions.append("#{text}")
 
           # Skip remaining part
@@ -340,10 +340,10 @@ class T3KAnalysisFrame < ThirdPartyConnector
           selected_range = percentage_ranges.find { |range| range[:range].cover?(score) }
 
           if selected_range
-            result[:item][:tags] << "#{@custom_metadata_field_name}|Scores|#{selected_range[:tag]}|#{score}%"
+            result[:item][:tags] << "#{@properties["metadata_name"]}|Scores|#{selected_range[:tag]}|#{score}%"
 
             # store info as tag
-            result[:item][:tags] << "#{@custom_metadata_field_name}|Results|#{type}|#{selected_range[:tag]}|#{score}%"
+            result[:item][:tags] << "#{@properties["metadata_name"]}|Results|#{type}|#{selected_range[:tag]}|#{score}%"
           end
         end
 
@@ -361,7 +361,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
         if info && description
 
           # store description as tag
-          result[:item][:tags] << "#{@custom_metadata_field_name}|Results|#{type}|#{description}"
+          result[:item][:tags] << "#{@properties["metadata_name"]}|Results|#{type}|#{description}"
 
           all_detections.append("#{info} - #{description}")
           # append to this detection type of the object
@@ -374,21 +374,21 @@ class T3KAnalysisFrame < ThirdPartyConnector
 
         if !info && !score && !description
           log "Error with the detections!!"
-          result[:item][:tags] << "#{@custom_metadata_field_name}|Error|DetectionError"
+          result[:item][:tags] << "#{@properties["metadata_name"]}|Error|DetectionError"
         else
           # log "Something detected"
-          result[:item][:tags] << "#{@custom_metadata_field_name}|Overview|Something detected"
+          result[:item][:tags] << "#{@properties["metadata_name"]}|Overview|Something detected"
           detection_count += 1
         end
       else
         #log "Nothing detected"
-        result[:item][:tags] << "#{@custom_metadata_field_name}|Overview|Nothing detected"
+        result[:item][:tags] << "#{@properties["metadata_name"]}|Overview|Nothing detected"
       end
     end
 
     # store max score for this type of detection
     all_detections_max_score.each_pair do |info, score|
-      metadatafield = "#{@custom_metadata_field_name}|Result|#{info}"
+      metadatafield = "#{@properties["metadata_name"]}|Result|#{info}"
 
       result[:item][:custom_metadata][metadatafield] = score
 
@@ -400,14 +400,14 @@ class T3KAnalysisFrame < ThirdPartyConnector
 
     # Set custom metadata on the item
     # store all types of detections in one field
-    result[:item][:custom_metadata]["#{@custom_metadata_field_name}|Detections"] = all_detections.join("\n")
-    result[:item][:custom_metadata]["#{@custom_metadata_field_name}|Count"] = detection_count
-    result[:item][:custom_metadata]["#{@custom_metadata_field_name}|RAW|Detections"] = detections.to_json
+    result[:item][:custom_metadata]["#{@properties["metadata_name"]}|Detections"] = all_detections.join("\n")
+    result[:item][:custom_metadata]["#{@properties["metadata_name"]}|Count"] = detection_count
+    result[:item][:custom_metadata]["#{@properties["metadata_name"]}|RAW|Detections"] = detections.to_json
 
     # NaLViS encodings
     if @chkbx_nalvis.isSelected && result_data.has_key?("nalvis_result")
       nalvis_result = result_data["nalvis_result"]
-      result[:item][:custom_metadata]["#{@custom_metadata_field_name}|nalvis"] = nalvis_result.to_json
+      result[:item][:custom_metadata]["#{@properties["metadata_name"]}|nalvis"] = nalvis_result.to_json
     end
 
     @result_queue.offer(result)
@@ -419,7 +419,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
     log("Found metadata fields")
     log(@metadata_fields)
     mdp_utility = MetadataProfileReaderWriter.new @current_case
-    mdp_utility.writeProfile("T3K Result", @custom_metadata_field_name, @metadata_fields)
+    mdp_utility.writeProfile("T3K Result", @properties["metadata_name"], @metadata_fields)
 
     # Open metadataprofile
     metadatastore = @current_case.getMetadataProfileStore()

@@ -75,13 +75,7 @@ class NalvisFrame < JFrame
     @resultData = []
     @resultDataSelected = {}
 
-    properties = read_properties SETTINGS_FILE
-
-    @api_host = properties["api_host"]
-    @api_port = properties["api_port"]
-    @batch_size = properties["batch_size"].to_i
-    @custom_metadata_field_name = properties["metadata_name"]
-    @nalvis_keep_alive_interval = properties["nalvis_keepalive"]
+    @properties = read_properties SETTINGS_FILE
 
     case_location = @current_case.getLocation().getAbsolutePath
     log_file_path = File.join(case_location, "t3k-nalvis_#{Time.now.strftime("%Y%m%d")}.log")
@@ -474,21 +468,21 @@ class NalvisFrame < JFrame
         rescue StandardError => e
           @logger.error("An error occurred with the keep-alive: #{e.message}")
         end
-        sleep(@nalvis_keep_alive_interval.to_i)
+        sleep(@properties["nalvis_keepalive"].to_i)
       end
     end
   end
 
   def get_create_session_url()
-    "http://#{@api_host}:#{@api_port}/session"
+    "http://#{@properties["api_host"]}:#{@properties["api_port"]}/session"
   end
 
   def get_keep_alive_url()
-    "http://#{@api_host}:#{@api_port}/keep-alive"
+    "http://#{@properties["api_host"]}:#{@properties["api_port"]}/keep-alive"
   end
 
   def get_search_url()
-    "http://#{@api_host}:#{@api_port}/search"
+    "http://#{@properties["api_host"]}:#{@properties["api_port"]}/search"
   end
 
   def log(message)
@@ -527,7 +521,7 @@ class NalvisFrame < JFrame
       @progressBar.setIndeterminate(true)
       log("Search NaLViS encodings")
 
-      nalvis_items = @current_case.searchUnsorted("custom-metadata:\"#{@custom_metadata_field_name}|nalvis\":*")
+      nalvis_items = @current_case.searchUnsorted("custom-metadata:\"#{@properties["metadata_name"]}|nalvis\":*")
       log("Found #{nalvis_items.length} items")
 
       if nalvis_items.length == 0
@@ -566,9 +560,9 @@ class NalvisFrame < JFrame
       @progressBar.maximum = nalvis_items.length
       
       batch_number = 0
-      total_batches = (nalvis_items.length / @batch_size.to_f).ceil
+      total_batches = (nalvis_items.length / @properties["batch_size"].to_f).ceil
 
-      nalvis_items.each_slice(@batch_size) do |batch|
+      nalvis_items.each_slice(@properties["batch_size"].to_i) do |batch|
         start = Time.now
         if @cancel_task
           log("Stopping batch!")
@@ -583,7 +577,7 @@ class NalvisFrame < JFrame
         encodings = {}
         batch.each do |item|
           guid = item.getGuid()
-          encoding = item.getCustomMetadata["#{@custom_metadata_field_name}|nalvis"]
+          encoding = item.getCustomMetadata["#{@properties["metadata_name"]}|nalvis"]
           if encoding.length > 0
             @item_thumbnails[guid] = item.getThumbnail().getPage(0)
             

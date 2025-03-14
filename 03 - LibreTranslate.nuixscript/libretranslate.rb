@@ -16,19 +16,29 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 require_relative "../libs.nuixscript/ThirdPartyConnector.rb"
+require_relative "libretranslate_settings_dialog.rb"
 
 script_directory = File.dirname(__FILE__)
 SETTINGS_FILE = File.join(script_directory, ".", "data.properties")
 
-class WhisperFrame < ThirdPartyConnector
+class LibreTranslateFrame < ThirdPartyConnector
   def initialize(window, current_case, current_selected_items, utilities)
     super window, current_case, current_selected_items, utilities
 
-    setTitle "Whisper transcription"
+    setTitle "LibreTranslate translation"
   end
 
   def get_api_url()
-    "http://#{@properties["api_host"]}:#{@properties["api_port"]}/asr?output=json"
+    "http://#{@properties["api_host"]}:#{@properties["api_port"]}/translate"
+  end
+
+  def get_exporter
+    @utilities.getTextExporter
+  end
+
+  def showSettings
+    dialog = LibreTranslateSettingsDialog.new self, SETTINGS_FILE
+    dialog.setVisible true
   end
 
   def upload_batch(batch, exported_items)
@@ -38,12 +48,9 @@ class WhisperFrame < ThirdPartyConnector
     upload_queue = LinkedBlockingQueue.new
     
     exported_items.each do |item_srv_path, data|
-      
-      form_data = [['audio_file', File.open(data[:exported_file_path])]]
-      
-      upload_queue.offer({:data => data, :form => form_data})      
+      upload_queue.offer(data)      
     end
-    
+
     num_threads = java.lang.Runtime.getRuntime.available_processors
     upload_executor = Executors.new_fixed_thread_pool(num_threads)
     
@@ -75,16 +82,17 @@ class WhisperFrame < ThirdPartyConnector
             end
             
             begin
-              upload_response = send_rest_request("post", get_api_url(), data[:form], "multipart/form-data")
+              payload = {:q => File.read(data[:exported_file_path]), :source => "auto", :target => @properties["target"], :format => "text"}
+              upload_response = send_rest_request("post", get_api_url(), payload)
         
               if upload_response.nil? || upload_response.code.to_i != 200
                 log "Upload failed for batch, Status Code: #{upload_response.code unless upload_response.nil?}"
 
                 # Clean up the exported item
-                delete_file(data[:data][:exported_file_path])
+                delete_file(data[:exported_file_path])
 
                 # Track item as export failed
-                @result_queue.offer({ 'type': "error", 'cat': "Upload", 'item': { 'guid': data[:data][:guid], 'response': upload_response } })
+                @result_queue.offer({ 'type': "error", 'cat': "Upload", 'item': { 'guid': data[:guid], 'response': upload_response } })
                 
               else
                 begin
@@ -94,21 +102,20 @@ class WhisperFrame < ThirdPartyConnector
                   response = {}
                 end
                 
-                if response.key?("text") and response["text"].length != 0
-                  #@result_queue.offer({ 'type': "success", 'cat': "Result", 'item': { 'guid': data[:data][:guid], 'tags': ["#{@properties["metadata_name"]}|Overview|transcripted"], 'custom_metadata': {}, 'text': response["text"] } })
-                  @result_queue.offer({ 'type': "success", 'cat': "Result", 'item': { 'guid': data[:data][:guid], 'tags': ["#{@properties["metadata_name"]}|Overview|transcripted"], 'custom_metadata': {"#{@properties["metadata_name"]}|Transcription": response["text"]} } })
+                if response.key?("translatedText") and response["translatedText"].length != 0
+                  @result_queue.offer({ 'type': "success", 'cat': "Result", 'item': { 'guid': data[:guid], 'tags': ["#{@properties["metadata_name"]}|Overview|translated"], 'custom_metadata': {"#{@properties["metadata_name"]}|Translation": response["translatedText"]} } })
                 else
-                  @result_queue.offer({ 'type': "error", 'cat': "Result", 'item': { 'guid': data[:data][:guid], 'response': upload_response } })
+                  @result_queue.offer({ 'type': "error", 'cat': "Result", 'item': { 'guid': data[:guid], 'response': upload_response } })
                 end
               end
-              
+
             rescue StandardError => e
               log("Upload error: #{e.message}")
               log(data)
             end
 
             # Clean up the exported item
-            delete_file(data[:data][:exported_file_path])
+            delete_file(data[:exported_file_path])
             
             mutex.synchronize do
               remaining_items -= 1
@@ -147,9 +154,9 @@ class WhisperFrame < ThirdPartyConnector
     source_guids = items.map { |item| item.guid }.compact
     guid_search = "guid:(#{source_guids.join " OR "})"
   
-    log "Save transcription as text"
-    items = @current_case.searchUnsorted("(#{guid_search}) AND (custom-metadata:\"#{@properties["metadata_name"]}|Transcription\":*)")
-    log "#{items.size} Items transcripted"
+    log "Save translation as text"
+    items = @current_case.searchUnsorted("(#{guid_search}) AND (custom-metadata:\"#{@properties["metadata_name"]}|Translation\":*)")
+    log "#{items.size} Items translated"
       
     setProgressBarMax 0
     setProgressBarValue 0
@@ -162,8 +169,8 @@ class WhisperFrame < ThirdPartyConnector
         log "Store text on item #{index+1}/#{items.size} with guid #{nuix_item.getGuid}"
         setLabel2 "#{items.size-index} items remaining"
         nuix_item.modify do | item_modifier |
-          data = nuix_item.getCustomMetadata["#{@properties["metadata_name"]}|Transcription"]
-          item_modifier.replaceText("============= TRANSCRIPTION =============\n\n#{data}")
+          data = nuix_item.getCustomMetadata["#{@properties["metadata_name"]}|Translation"]
+          item_modifier.replaceText(nuix_item.getTextObject.toString + "\n\n============= TRANSLATION =============\n\n#{data}")
         end
       end
     end
@@ -177,10 +184,10 @@ end
 
 begin
   if !File.exists? SETTINGS_FILE
-    dialog = SettingsDialog.new nil, SETTINGS_FILE
+    dialog = LibreTranslateSettingsDialog.new nil, SETTINGS_FILE
     dialog.setVisible true
   end
-  analysis_frame = WhisperFrame.new window, current_case, current_selected_items, utilities
+  analysis_frame = LibreTranslateFrame.new window, current_case, current_selected_items, utilities
   analysis_frame.setVisible true
 rescue StandardError => e
   JOptionPane.showMessageDialog(nil, "An error occurred: #{e.message}")

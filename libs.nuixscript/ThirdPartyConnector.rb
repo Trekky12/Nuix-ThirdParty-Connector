@@ -62,14 +62,7 @@ class ThirdPartyConnector < JFrame
     @utilities = utilities
     @metadata_fields = {}
 
-    properties = read_properties SETTINGS_FILE
-
-    @api_host = properties["api_host"]
-    @api_port = properties["api_port"]
-    @export_folder = properties["export_folder"]
-    @srv_folder = properties["srv_folder"]
-    @batch_size = properties["batch_size"].to_i
-    @custom_metadata_field_name = properties["metadata_name"]
+    @properties = read_properties SETTINGS_FILE
 
     case_location = @current_case.getLocation().getAbsolutePath
     log_file_path = File.join(case_location, "api_#{Time.now.strftime("%Y%m%d-%H%M%S")}.log")
@@ -409,27 +402,27 @@ class ThirdPartyConnector < JFrame
     items = @current_selected_items
     begin
       nuix_case = @current_case
-      exporter = @utilities.getBinaryExporter
+      exporter = get_exporter()
       annotater = @utilities.getBulkAnnotater
       
-      annotater.addTag("#{@custom_metadata_field_name}|Overview|Selected", items)
+      annotater.addTag("#{@properties["metadata_name"]}|Overview|Selected", items)
 
       # Create a timestamped folder
       timestamp = Time.now.strftime("%Y%m%d_%H%M%S")
-      timestamped_folder = "#{@export_folder}/#{timestamp}"
+      timestamped_folder = "#{@properties["export_folder"]}/#{timestamp}"
       FileUtils.mkdir_p(timestamped_folder)
 
       log("Starting classification of #{items.size} items")
 
       # Process each item in the batch
       batch_number = 0
-      total_batches = (items.length / @batch_size.to_f).ceil
+      total_batches = (items.length / @properties["batch_size"].to_f).ceil
 
       setLabel1 "Phase 1/3: Exporting and classify items in batches"
       setProgressBarMax items.length
       setLabel4 "Item #{@progressBar.value}/#{@progressBar.maximum} (#{((@progressBar.value.to_f / @progressBar.maximum) * 100).round(0)}%)"
 
-      items.each_slice(@batch_size) do |batch|
+      items.each_slice(@properties["batch_size"].to_i) do |batch|
         start = Time.now
         if @cancel_task
           log("Stopping batch!")
@@ -445,7 +438,7 @@ class ThirdPartyConnector < JFrame
         log("Exporting files to #{timestamped_folder}")
         exported_items = {}
         batch.each do |item|
-          #@result_queue.offer({ 'type': "success", 'cat': "Select", 'item': { "guid": item.getGuid(), "tags": ["#{@custom_metadata_field_name}|Overview|Selected"] } })
+          #@result_queue.offer({ 'type': "success", 'cat': "Select", 'item': { "guid": item.getGuid(), "tags": ["#{@properties["metadata_name"]}|Overview|Selected"] } })
 
           log("Exporting file #{item.getGuid()}.#{item.getCorrectedExtension()}")
           exported_file_path = "#{timestamped_folder}/#{item.getGuid()}.#{item.getCorrectedExtension()}"
@@ -457,8 +450,11 @@ class ThirdPartyConnector < JFrame
 
           if File.exist?(exported_file_path)
             log("Export successfully")
-            item_srv_path = "#{@srv_folder}/#{timestamp}/#{item.getGuid()}.#{item.getCorrectedExtension()}"
-            exported_items[item_srv_path] = { 'guid': item.getGuid(), 'item_srv_path': item_srv_path, 'exported_file_path': exported_file_path }
+            info = { 'guid': item.getGuid(), 'exported_file_path': exported_file_path }
+            if @properties.key?("srv_folder")
+              info['item_srv_path'] = "#{@srv_folder}/#{timestamp}/#{item.getGuid()}.#{item.getCorrectedExtension()}"
+            end
+            exported_items[item_srv_path] = info
           else
             @result_queue.offer({ 'type': "error", 'cat': "Export", 'item': { 'guid': item.getGuid() } })
             log("Failed to export #{item.getGuid}")
@@ -543,13 +539,13 @@ class ThirdPartyConnector < JFrame
   def update_custom_metadata_for_failed_item(item_data, error_type)
     nuix_item = @current_case.search("guid:#{item_data[:guid]}").first
 
-    nuix_item.addTag("#{@custom_metadata_field_name}|Errors|#{error_type}")
+    nuix_item.addTag("#{@properties["metadata_name"]}|Errors|#{error_type}")
 
     error_msg = "Failed to process the item"
     unless item_data[:response].nil?
       error_msg = "#{error_msg}, Status: #{item_data[:response].code}, Body: #{item_data[:response].body}"
     end
-    nuix_item.getCustomMetadata["#{@custom_metadata_field_name}|Error|#{error_type}"] = error_msg
+    nuix_item.getCustomMetadata["#{@properties["metadata_name"]}|Error|#{error_type}"] = error_msg
   end
 
   def stop_task
@@ -570,6 +566,10 @@ class ThirdPartyConnector < JFrame
 
   def finalize(items)
     raise "implementation needed"
+  end
+
+  def get_exporter
+    @utilities.getBinaryExporter
   end
 
   class LogWindowAdapter < WindowAdapter
