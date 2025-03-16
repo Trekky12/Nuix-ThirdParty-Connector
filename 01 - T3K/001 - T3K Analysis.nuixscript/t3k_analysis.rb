@@ -17,38 +17,13 @@
 
 require_relative "../../libs.nuixscript/ThirdPartyConnector.rb"
 require_relative "../libs.nuixscript/metadata_profile_writer.rb"
-require_relative "../libs.nuixscript/t3k_settings_dialog.rb"
 
-script_directory = File.dirname(__FILE__)
-SETTINGS_FILE = File.join(script_directory, "..", "data.properties")
-
-class T3KAnalysisFrame < ThirdPartyConnector
-  def initialize(window, current_case, current_selected_items, utilities)
-    super window, current_case, current_selected_items, utilities
-
-    setTitle "T3K CORE classification"
+class T3KConnector < ThirdPartyConnector
+  def initialize(current_case, current_selected_items, utilities, settings_file)
+    super current_case, current_selected_items, utilities, settings_file
     @metadata_fields = {}
-
-    gbc_chkbx_nalvis = java.awt.GridBagConstraints.new
-    gbc_chkbx_nalvis.gridx = 0
-    gbc_chkbx_nalvis.gridy = 2
-    gbc_chkbx_nalvis.anchor = java.awt.GridBagConstraints::NORTHWEST
-    gbc_chkbx_nalvis.insets = java.awt.Insets.new(5, 10, 5, 10)
-    @chkbx_nalvis = JCheckBox.new("Store NaLViS Encodings")
-    @chkbx_nalvis.setSelected(true)
-    @chkbx_nalvis.setEnabled(true)
-    @panel.add(@chkbx_nalvis, gbc_chkbx_nalvis)
-
-    @items_to_disable.append(@chkbx_nalvis)
-
-    pack
   end
-
-  def showSettings
-    dialog = T3KSettingsDialog.new self, SETTINGS_FILE
-    dialog.setVisible true
-  end
-
+  
   def get_upload_url()
     "http://#{@properties["api_host"]}:#{@properties["api_port"]}/upload"
   end
@@ -109,9 +84,9 @@ class T3KAnalysisFrame < ThirdPartyConnector
     # Poll the API until all items which are uploaded are finished processing
     log("Polling uploaded items and get result")
     all_items_finished = false
-    until all_items_finished || @cancel_task
+    until all_items_finished || @frame&.is_task_cancelled?
       uploaded_items.each do |item_srv_path, item_data|
-        if @cancel_task
+        if @frame&.is_task_cancelled?
           log("Stopping task!")
           break
         end
@@ -150,7 +125,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
       log "Item #{upload_id}: Polling failed for item: #{item_data[:guid]}, Status Code: #{poll_response.code unless poll_response.nil?}"
       @result_queue.offer({ 'type': "error", 'cat': "PollQuery", 'item': { 'guid': item_data[:guid], 'response': poll_response } })
       delete_file(item_data[:exported_file_path])
-      increase_progress()
+      @frame&.increase_progress()
       return true # Mark the item as finished
     else
       begin
@@ -176,7 +151,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
           log "Item #{upload_id}: Result retrieval failed for item: #{item_data[:guid]}, Status Code: #{result_response.code unless result_response.nil?}"
           @result_queue.offer({ 'type': "error", 'cat': "ResultQuery", 'item': { 'guid': item_data[:guid], 'response': result_response } })
           delete_file(item_data[:exported_file_path])
-          increase_progress()
+          @frame&.increase_progress()
           return true # Mark the item as finished
         end
 
@@ -199,7 +174,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
         end
 
         delete_file(item_data[:exported_file_path])
-        increase_progress()
+        @frame&.increase_progress()
         return true # Mark the item as finished
       end
     end
@@ -405,7 +380,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
     result[:item][:custom_metadata]["#{@properties["metadata_name"]}|RAW|Detections"] = detections.to_json
 
     # NaLViS encodings
-    if @chkbx_nalvis.isSelected && result_data.has_key?("nalvis_result")
+    if @frame&.storeNalvis? && result_data.has_key?("nalvis_result")
       nalvis_result = result_data["nalvis_result"]
       result[:item][:custom_metadata]["#{@properties["metadata_name"]}|nalvis"] = nalvis_result.to_json
     end
@@ -413,7 +388,7 @@ class T3KAnalysisFrame < ThirdPartyConnector
     @result_queue.offer(result)
   end
 
-  def finalize(items)
+  def finalize()
 
     # Write Metadataprofile
     log("Found metadata fields")
@@ -426,22 +401,9 @@ class T3KAnalysisFrame < ThirdPartyConnector
     metadataprofile = metadatastore.getMetadataProfile("T3K Result")
     if metadataprofile
       # @window.closeAllTabs
-      source_guids = items.map { |item| item.guid }.compact
+      source_guids = @current_selected_items.map { |item| item.guid }.compact
       guid_search = "guid:(#{source_guids.join " OR "})"
-      @window.openTab "workbench", { "search" => guid_search, "metadataProfile" => metadataprofile }
+      @frame&.instance_variable_get(:@window).openTab "workbench", { "search" => guid_search, "metadataProfile" => metadataprofile } if @frame
     end
   end
 end
-
-begin
-  if !File.exists? SETTINGS_FILE
-    dialog = T3KSettingsDialog.new nil, SETTINGS_FILE
-    dialog.setVisible true
-  end
-  analysis_frame = T3KAnalysisFrame.new window, current_case, current_selected_items, utilities
-  analysis_frame.setVisible true
-rescue StandardError => e
-  JOptionPane.showMessageDialog(nil, "An error occurred: #{e.message}")
-end
-
-return 0

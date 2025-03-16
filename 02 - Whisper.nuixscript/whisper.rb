@@ -17,15 +17,7 @@
 
 require_relative "../libs.nuixscript/ThirdPartyConnector.rb"
 
-script_directory = File.dirname(__FILE__)
-SETTINGS_FILE = File.join(script_directory, ".", "data.properties")
-
-class WhisperFrame < ThirdPartyConnector
-  def initialize(window, current_case, current_selected_items, utilities)
-    super window, current_case, current_selected_items, utilities
-
-    setTitle "Whisper transcription"
-  end
+class WhisperConnector < ThirdPartyConnector
 
   def get_api_url()
     "http://#{@properties["api_host"]}:#{@properties["api_port"]}/asr?output=json"
@@ -112,7 +104,7 @@ class WhisperFrame < ThirdPartyConnector
             
             mutex.synchronize do
               remaining_items -= 1
-              increase_progress()
+              @frame&.increase_progress()
             end
           end
         rescue StandardError => e
@@ -142,18 +134,14 @@ class WhisperFrame < ThirdPartyConnector
     return true
   end
   
-  def finalize(items)
+  def finalize()
   
-    source_guids = items.map { |item| item.guid }.compact
+    source_guids = @current_selected_items.map { |item| item.guid }.compact
     guid_search = "guid:(#{source_guids.join " OR "})"
   
     log "Save transcription as text"
     items = @current_case.searchUnsorted("(#{guid_search}) AND (custom-metadata:\"#{@properties["metadata_name"]}|Transcription\":*)")
     log "#{items.size} Items transcripted"
-      
-    setProgressBarMax 0
-    setProgressBarValue 0
-    @progressBar.setIndeterminate(true)
   
     # Storing text in parallel is not working so this is done at last:
     # Search for items with custom-metadata and store as text
@@ -168,22 +156,9 @@ class WhisperFrame < ThirdPartyConnector
       end
     end
     
-    @progressBar.setIndeterminate(false)
+    @frame&.instance_variable_get(:@progressBar).setIndeterminate(false) if @frame
   
     # @window.closeAllTabs
-    @window.openTab "workbench", { "search" => guid_search }
+    @frame&.instance_variable_get(:@window).openTab "workbench", { "search" => guid_search } if @frame
   end
 end
-
-begin
-  if !File.exists? SETTINGS_FILE
-    dialog = SettingsDialog.new nil, SETTINGS_FILE
-    dialog.setVisible true
-  end
-  analysis_frame = WhisperFrame.new window, current_case, current_selected_items, utilities
-  analysis_frame.setVisible true
-rescue StandardError => e
-  JOptionPane.showMessageDialog(nil, "An error occurred: #{e.message}")
-end
-
-return 0

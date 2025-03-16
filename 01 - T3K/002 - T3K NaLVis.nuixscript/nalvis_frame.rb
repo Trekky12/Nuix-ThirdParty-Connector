@@ -60,11 +60,8 @@ java_import javax.swing.SwingWorker
 require_relative "../../libs.nuixscript/helper.rb"
 require_relative "../libs.nuixscript/t3k_settings_dialog.rb"
 
-script_directory = File.dirname(__FILE__)
-SETTINGS_FILE = File.join(script_directory, "..", "data.properties")
-
 class NalvisFrame < JFrame
-  def initialize(window, current_case, current_selected_items, utilities)
+  def initialize(window, current_case, current_selected_items, utilities, settings_file)
     super "T3K NaLViS Search"
     setDefaultCloseOperation JFrame::DO_NOTHING_ON_CLOSE
 
@@ -75,7 +72,7 @@ class NalvisFrame < JFrame
     @resultData = []
     @resultDataSelected = {}
 
-    @properties = read_properties SETTINGS_FILE
+    @properties = read_properties settings_file
 
     case_location = @current_case.getLocation().getAbsolutePath
     log_file_path = File.join(case_location, "t3k-nalvis_#{Time.now.strftime("%Y%m%d")}.log")
@@ -1054,16 +1051,3 @@ class ImageAdderWorker < SwingWorker
     end
   end
 end
-
-begin
-  if !File.exists? SETTINGS_FILE
-    dialog = T3KSettingsDialog.new nil, SETTINGS_FILE
-    dialog.setVisible true
-  end
-  nalvis_frame = NalvisFrame.new window, current_case, current_selected_items, utilities
-  nalvis_frame.setVisible true
-rescue StandardError => e
-  JOptionPane.showMessageDialog(nil, "An error occurred: #{e.message}")
-end
-
-return 0

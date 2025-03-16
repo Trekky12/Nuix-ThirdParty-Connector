@@ -104,7 +104,7 @@ class SettingsDialog < JDialog
     constraints.weightx = 1.0
     @content_panel.add(@field_metadata_name, constraints)
 
-    label_export_folder = JLabel.new("Export Folder (Network-Path):")
+    label_export_folder = JLabel.new("Export Folder:")
     constraints = GridBagConstraints.new
     constraints.gridx = 0
     constraints.gridy = 3
