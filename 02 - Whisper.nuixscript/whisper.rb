@@ -118,7 +118,7 @@ class WhisperConnector < ThirdPartyConnector
     end
     
     # wait for results
-    while (upload_queue.size > 0 or remaining_items > 0) and not @cancel_task
+    while (upload_queue.size > 0 or remaining_items > 0) and not @frame&.is_task_cancelled?
       log "#{upload_queue.size} items remaining to upload"
       log "#{remaining_items} items remaining to receive the results"
       #setLabel3 "#{upload_queue.size+remaining_items} items remaining"
