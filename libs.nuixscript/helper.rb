@@ -63,10 +63,23 @@ end
 
 def read_properties(file)
   properties = {}
+  current_key = nil
+  current_value = ""
+
   File.open(file, "r") do |file|
     file.each_line do |line|
-      key, value = line.strip.split("=")
-      properties[key] = value
+
+      if line.include?("=")
+        # store previous values
+        if current_key
+          properties[current_key] = current_value
+        end
+        current_key, value = line.strip.split("=")
+        current_value = value || ""
+      else
+        current_value += line unless current_key.nil?
+      end
+      properties[current_key] = current_value if current_key
     end
   end
   properties

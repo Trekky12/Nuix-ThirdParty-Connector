@@ -7,3 +7,4 @@ The supported APIs are:
 - T3K Core media classification (https://www.t3k.ai/core)
 - Whisper Transcription (https://github.com/ahmetoner/whisper-asr-webservice)
 - LibreTranslate Translation (https://github.com/LibreTranslate/LibreTranslate)
+- ollama text generation (https://github.com/ollama/ollama) with `/api/generate`, [README](04%20-%20ollama.nuixscript/README.md)
