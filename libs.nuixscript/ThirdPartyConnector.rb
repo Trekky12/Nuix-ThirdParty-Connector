@@ -61,7 +61,7 @@ class ThirdPartyConnector
           shutdown = false
           
           @result_mutex.synchronize do
-            if @result_finished and @result_queue.size == 0
+            if @result_finished
               shutdown = true
             end
           end
@@ -221,10 +221,15 @@ class ThirdPartyConnector
     @frame&.instance_variable_get(:@progressBar).setIndeterminate(true) if @frame
 
     # wait for classification is done (@result_queue.size == 0)
-    while (@result_queue.size > 0 or @result_remaining_items > 0) and not @frame&.is_task_cancelled?
+    while (@result_queue.size+@result_remaining_items > 0) and not @frame&.is_task_cancelled?
       @frame&.setLabel2 "#{@result_queue.size+@result_remaining_items} items remaining"
       sleep(1)
     end
+
+    if @frame&.is_task_cancelled?
+      log("Classification is cancelled")
+    end
+
     # then stop @result_executor
     @result_finished = true
     @result_executor.shutdown
