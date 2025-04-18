@@ -16,8 +16,14 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 require_relative "../libs.nuixscript/ThirdPartyConnector.rb"
+require_relative "../libs.nuixscript/metadata_profile_writer.rb"
 
 class OllamaConnector < ThirdPartyConnector
+  def initialize(current_case, current_selected_items, utilities, settings_file)
+    super current_case, current_selected_items, utilities, settings_file
+    @metadata_fields = {}
+  end
+
   def get_api_url()
     "http://#{@properties["api_host"]}:#{@properties["api_port"]}/api/generate"
   end
@@ -93,7 +99,15 @@ class OllamaConnector < ThirdPartyConnector
                   custom_metadata = {}
 
                   result.each do | key, value |
-                    custom_metadata["#{@properties["metadata_name"]}|#{key}"] = value
+
+                    metadatafield = "#{@properties["metadata_name"]}#{key}"
+
+                    custom_metadata[metadatafield] = value
+
+                    # append as metadata column for metadataprofile
+                    if !@metadata_fields.key?(metadatafield)
+                      @metadata_fields[metadatafield] = key
+                    end
                   end
 
                   @result_queue.offer({ 'type': "success", 'cat': "Result", 'item': { 'guid': data[:guid], 'tags': ["#{@properties["metadata_name"]}|Overview|classified"], 'custom_metadata': custom_metadata } })
@@ -141,12 +155,21 @@ class OllamaConnector < ThirdPartyConnector
   end
   
   def finalize()
-  
-    source_guids = @current_selected_items.map { |item| item.guid }.compact
-    guid_search = "guid:(#{source_guids.join " OR "})"
 
-    # TODO: create metadata profile
+    # Write Metadataprofile
+    log("Found metadata fields")
+    log(@metadata_fields)
+    mdp_utility = MetadataProfileReaderWriter.new @current_case
+    mdp_utility.writeProfile("Ollama Result", @properties["metadata_name"], @metadata_fields)
 
-    @frame&.instance_variable_get(:@window).openTab "workbench", { "search" => guid_search } if @frame
+    # Open metadataprofile
+    metadatastore = @current_case.getMetadataProfileStore()
+    metadataprofile = metadatastore.getMetadataProfile("Ollama Result")
+    if metadataprofile
+      # @window.closeAllTabs
+      source_guids = @current_selected_items.map { |item| item.guid }.compact
+      guid_search = "guid:(#{source_guids.join " OR "})"
+      @frame&.instance_variable_get(:@window).openTab "workbench", { "search" => guid_search, "metadataProfile" => metadataprofile } if @frame
+    end
   end
 end

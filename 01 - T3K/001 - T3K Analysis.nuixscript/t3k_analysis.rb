@@ -16,12 +16,14 @@
 # along with this program. If not, see <http://www.gnu.org/licenses/>.
 
 require_relative "../../libs.nuixscript/ThirdPartyConnector.rb"
-require_relative "../libs.nuixscript/metadata_profile_writer.rb"
+require_relative "../../libs.nuixscript/metadata_profile_writer.rb"
 
 class T3KConnector < ThirdPartyConnector
   def initialize(current_case, current_selected_items, utilities, settings_file)
     super current_case, current_selected_items, utilities, settings_file
     @metadata_fields = {}
+    @metadata_fields["#{@properties["metadata_name"]}|Count"] = "#Treffer"
+    @metadata_fields["#{@properties["metadata_name"]}|Detections"] = "Treffer"
   end
   
   def get_upload_url()
