@@ -149,7 +149,6 @@ class SettingsDialog < JDialog
     constraints.gridy = 100
     constraints.anchor = GridBagConstraints::NORTHWEST
     constraints.insets = Insets.new(10, 4, 6, 6)
-    constraints.weighty = 1.0
     @content_panel.add(@save_button, constraints)
 
     @fields = { "api_host" => @field_api_host,

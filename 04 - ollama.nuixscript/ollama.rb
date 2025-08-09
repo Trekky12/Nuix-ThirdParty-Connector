@@ -72,7 +72,7 @@ class OllamaConnector < ThirdPartyConnector
               # TODO: split the items text into chunks to not lose context on too many tokens
               document_content = File.read(data[:exported_file_path])
 
-              payload = {:prompt => @properties["prompt"].gsub("{document}", document_content), :model => @properties["model"], :format =>"json", :stream => false}
+              payload = {:prompt => @properties["prompt"].gsub("{document}", document_content), :model => @properties["model"], :format =>"json", :stream => false, :options => {:num_ctx => 8192}}
 
               upload_response = send_rest_request("post", get_api_url(), payload)
         
@@ -97,10 +97,12 @@ class OllamaConnector < ThirdPartyConnector
                     result = {}
                   end
                   custom_metadata = {}
+                  
+                  log result
 
                   result.each do | key, value |
 
-                    metadatafield = "#{@properties["metadata_name"]}#{key}"
+                    metadatafield = "#{@properties["metadata_name"]}|#{key}"
 
                     custom_metadata[metadatafield] = value
 

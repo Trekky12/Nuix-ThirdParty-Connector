@@ -12,5 +12,7 @@ You are a document assistant. Please answer the following questions about the do
 Answer in german and return valid json.
 ```
 
-Drawbacks:
+**Drawbacks:**
 Currently items text is not splitted into chunks so depending on the text length the context could be lost.
+
+**Important:** The search query needs to include `AND has-text:1` to match only items with text.

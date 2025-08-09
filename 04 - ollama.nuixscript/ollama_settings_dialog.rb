@@ -56,10 +56,11 @@ class OllamaSettingsDialog < SettingsDialog
     constraints = GridBagConstraints.new
     constraints.gridx = 1
     constraints.gridy = 6
-    constraints.fill = GridBagConstraints::HORIZONTAL
+    constraints.fill = GridBagConstraints::BOTH
     constraints.anchor = GridBagConstraints::NORTHWEST
     constraints.insets = Insets.new(10, 6, 6, 10)
     constraints.weightx = 1.0
+    constraints.weighty = 1.0
     @field_prompt.setRows(5)
     @field_prompt.text = "{document}"
     @content_panel.add(@field_prompt, constraints)
